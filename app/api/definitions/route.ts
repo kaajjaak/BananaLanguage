@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     await col.updateOne(
       { word },
       {
-        $set: { word, level: 0, updatedAt: new Date() },
+        $set: { word, level: 1, updatedAt: new Date() },
         $setOnInsert: { createdAt: new Date() },
         $push: { definitions: entry },
       },
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     )
     const saved = (await col.findOne({ word })) as WordDoc | null
     return new Response(
-      JSON.stringify({ word: saved?.word, level: saved?.level ?? 0, definitions: saved?.definitions ?? [entry] }),
+      JSON.stringify({ word: saved?.word, level: saved?.level ?? 1, definitions: saved?.definitions ?? [entry] }),
       { status: 200 },
     )
   } catch (err: any) {

@@ -159,7 +159,7 @@ function KnowledgeLevelModal({
               {isAddingDef ? "Generating…" : "+ Add Translation & Definition (AI)"}
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Adds a brief English translation and a definition in the context of the sentence and saves this word at the lowest level.
+              Adds a brief English translation and a definition in the context of the sentence and saves this word as "Barely know".
             </p>
           </div>
         </CardContent>
@@ -227,7 +227,7 @@ function StoryView() {
   const renderTextWithHighlights = (text: string) => {
     return text.split(/(\s+|[.,!?;:])/).map((part, index) => {
       const cleanWord = part.replace(/[.,!?;:]/g, "").toLowerCase()
-      const isWord = part.trim() && /^[\p{L}\p{M}]+$/u.test(cleanWord)
+      const isWord = part.trim() && /^[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*$/u.test(cleanWord)
       if (isWord) {
         const level = wordLevels[cleanWord]?.level ?? 0 // unknown words default to 0 = blue
         return (
@@ -252,7 +252,7 @@ function StoryView() {
     const uniqueWords = new Set<string>()
     for (const part of tokens) {
       const cleanWord = part.replace(/[.,!?;:]/g, "").toLowerCase()
-      if (cleanWord && /^[\p{L}\p{M}]+$/u.test(cleanWord)) uniqueWords.add(cleanWord)
+      if (cleanWord && /^[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*$/u.test(cleanWord)) uniqueWords.add(cleanWord)
     }
     const toMaster = Array.from(uniqueWords).filter((w) => (wordLevels[w]?.level ?? 0) === 0)
 
