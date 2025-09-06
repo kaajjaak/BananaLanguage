@@ -1,73 +1,65 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { Clock, BookOpen } from "lucide-react"
 
-// Mock past conversations data
-const mockPastConversations = [
-  {
-    id: 1,
-    title: "A story about a cat who loves to travel",
-    level: "A2",
-    date: "2 hours ago",
-    progress: "2/3 paragraphs read",
-  },
-  {
-    id: 2,
-    title: "Adventures in a magical forest",
-    level: "B1",
-    date: "Yesterday",
-    progress: "Completed",
-  },
-  {
-    id: 3,
-    title: "A chef discovering new recipes",
-    level: "A2",
-    date: "3 days ago",
-    progress: "1/4 paragraphs read",
-  },
-  {
-    id: 4,
-    title: "Mystery at the old library",
-    level: "B2",
-    date: "1 week ago",
-    progress: "Completed",
-  },
-  {
-    id: 5,
-    title: "Learning to dance in Paris",
-    level: "A1",
-    date: "2 weeks ago",
-    progress: "3/5 paragraphs read",
-  },
-]
-
 export default function HomePage() {
   const [prompt, setPrompt] = useState("")
   const [level, setLevel] = useState("")
+  const [imageStyle, setImageStyle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [stories, setStories] = useState<Array<{ id: string; title: string; level: string; createdAt: string }>>([])
   const router = useRouter()
+
+  useEffect(() => {
+    const loadStories = async () => {
+      try {
+        const res = await fetch("/api/stories", { cache: "no-store" })
+        if (res.ok) {
+          const data = await res.json()
+          setStories(
+            data.map((d: any) => ({
+              id: d.id,
+              title: d.title,
+              level: d.level,
+              createdAt: d.createdAt,
+            })),
+          )
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+    loadStories()
+  }, [])
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !level) return
 
     setIsGenerating(true)
-
-    // Simulate generation delay
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/generate-story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, level, imageStyle: imageStyle.trim() || undefined }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      router.push(`/story/${data.id}`)
+    } catch (e) {
+      console.error("Failed to generate story", e)
       setIsGenerating(false)
-      router.push(`/story?level=${level}&prompt=${encodeURIComponent(prompt)}`)
-    }, 2000)
+    }
   }
 
-  const handleReopenStory = (conversationId: number) => {
-    // In a real app, this would load the specific conversation
-    router.push(`/story?level=A2&prompt=mock-story-${conversationId}`)
+  const handleReopenStory = (id: string) => {
+    router.push(`/story/${id}`)
   }
 
   return (
@@ -113,6 +105,19 @@ export default function HomePage() {
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <label htmlFor="imageStyle" className="text-sm font-medium text-foreground">
+              Optional image style
+            </label>
+            <Input
+              id="imageStyle"
+              placeholder="e.g., watercolor, cyberpunk, hand-drawn sketch"
+              value={imageStyle}
+              onChange={(e) => setImageStyle(e.target.value)}
+              className="border-2 border-border bg-card"
+            />
+          </div>
+
           <Button
             onClick={handleGenerate}
             disabled={!prompt.trim() || !level || isGenerating}
@@ -131,7 +136,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mockPastConversations.map((conversation) => (
+            {stories.map((conversation) => (
               <Card
                 key={conversation.id}
                 className="hover:shadow-md transition-shadow cursor-pointer"
@@ -150,9 +155,8 @@ export default function HomePage() {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {conversation.date}
+                      {new Date(conversation.createdAt).toLocaleString()}
                     </div>
-                    <div className="text-xs">Progress: {conversation.progress}</div>
                   </div>
                 </CardContent>
               </Card>
