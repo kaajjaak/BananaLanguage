@@ -6,6 +6,7 @@ import { Playfair_Display, Source_Sans_3 as Source_Sans_Pro } from "next/font/go
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import "./globals.css"
+import BananaCounter from "@/components/banana-counter"
 
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${playfairDisplay.variable} ${sourceSansPro.variable}`}
       >
         <Suspense fallback={null}>{children}</Suspense>
+        <BananaCounter />
         <Analytics />
       </body>
     </html>
