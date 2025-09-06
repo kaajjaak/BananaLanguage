@@ -7,7 +7,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { Clock, BookOpen } from "lucide-react"
+import { Clock, BookOpen, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function HomePage() {
   const [prompt, setPrompt] = useState("")
@@ -15,6 +26,7 @@ export default function HomePage() {
   const [imageStyle, setImageStyle] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [stories, setStories] = useState<Array<{ id: string; title: string; level: string; createdAt: string }>>([])
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -60,6 +72,20 @@ export default function HomePage() {
 
   const handleReopenStory = (id: string) => {
     router.push(`/story/${id}`)
+  }
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return
+    try {
+      const res = await fetch(`/api/stories/${pendingDeleteId}`, { method: "DELETE" })
+      if (res.status === 204) {
+        setStories((prev) => prev.filter((s) => s.id !== pendingDeleteId))
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setPendingDeleteId(null)
+    }
   }
 
   return (
@@ -137,25 +163,50 @@ export default function HomePage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {stories.map((conversation) => (
-              <Card
-                key={conversation.id}
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleReopenStory(conversation.id)}
-              >
+              <Card key={conversation.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <BookOpen className="h-5 w-5 text-accent mt-1" />
-                    <span className="text-xs bg-accent/10 text-accent px-2 py-1 rounded-full">
-                      {conversation.level}
-                    </span>
-                  </div>
-
-                  <h3 className="font-medium text-foreground mb-2 line-clamp-2">{conversation.title}</h3>
-
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {new Date(conversation.createdAt).toLocaleString()}
+                    <div className="flex items-start gap-2">
+                      <BookOpen className="h-5 w-5 text-accent mt-1" />
+                      <button
+                        className="text-left"
+                        onClick={() => handleReopenStory(conversation.id)}
+                        title="Open story"
+                      >
+                        <h3 className="font-medium text-foreground mb-1 line-clamp-2">{conversation.title}</h3>
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(conversation.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-accent/10 text-accent px-2 py-1 rounded-full">
+                        {conversation.level}
+                      </span>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPendingDeleteId(conversation.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this story?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the story and its images.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setPendingDeleteId(null)}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 </CardContent>
