@@ -176,6 +176,12 @@ function StoryView() {
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
   const [wordLevels, setWordLevels] = useState<Record<string, { level: number; definitions: WordDefinition[] }>>({})
 
+  const notifyLevelsUpdated = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("word-levels-updated"))
+    }
+  }
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -270,6 +276,8 @@ function StoryView() {
         )
       } catch (e) {
         console.error(e)
+      } finally {
+        notifyLevelsUpdated()
       }
     }
 
@@ -296,6 +304,8 @@ function StoryView() {
       }
     } catch (e) {
       console.error(e)
+    } finally {
+      notifyLevelsUpdated()
     }
   }
 
