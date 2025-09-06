@@ -58,3 +58,36 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    if (!process.env.MONGODB_URI) {
+      return new Response(JSON.stringify({ error: "MONGODB_URI not configured" }), { status: 500 })
+    }
+    const body = await req.json()
+    const wordRaw: string | undefined = body.word
+    const sentence: string | undefined = body.sentence
+    const translation: string | undefined = body.translation
+    const definition: string | undefined = body.definition
+
+    if (!wordRaw || !sentence) {
+      return new Response(JSON.stringify({ error: "Missing word or sentence" }), { status: 400 })
+    }
+    const word = String(wordRaw).toLowerCase()
+
+    const match: any = { sentence }
+    if (translation !== undefined) match.translation = translation
+    if (definition !== undefined) match.definition = definition
+
+    const col = await wordsCollection()
+    await col.updateOne(
+      { word },
+      { $pull: { definitions: match }, $set: { updatedAt: new Date() } },
+    )
+    const saved = (await col.findOne({ word })) as WordDoc | null
+    return new Response(JSON.stringify(saved), { status: 200 })
+  } catch (err: any) {
+    console.error("/api/definitions DELETE error", err)
+    return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500 })
+  }
+}

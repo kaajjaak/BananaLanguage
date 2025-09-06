@@ -21,9 +21,8 @@ const sourceSansPro = Source_Sans_Pro({
 })
 
 export const metadata: Metadata = {
-  title: "StoryLingo - AI Language Learning Stories",
+  title: "BananaLanguage - AI Language Learning Stories",
   description: "Generate personalized stories for language learning with AI-powered illustrations",
-  generator: "v0.app",
 }
 
 export default function RootLayout({

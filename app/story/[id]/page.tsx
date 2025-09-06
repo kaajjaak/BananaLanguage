@@ -98,8 +98,8 @@ function KnowledgeLevelModal({
                   className="flex-1 min-w-0"
                   onClick={() => handleLevelSelect(l.level)}
                 >
-                  <span className="text-lg mr-1">{l.emoji}</span>
-                  <span className="text-xs">{l.label}</span>
+                  <span className="text-base mr-1">{l.emoji}</span>
+                  <span className="text-[10px] leading-none">{l.label}</span>
                 </Button>
               ))}
             </div>
@@ -113,13 +113,39 @@ function KnowledgeLevelModal({
               )}
               {definitions.map((def, idx) => (
                 <div key={idx} className="bg-muted/50 p-4 rounded">
-                  <p className="text-sm italic mb-1">"{def.sentence}"</p>
-                  {def.translation ? (
-                    <p className="text-sm font-medium">Translation: <span className="font-normal">{def.translation}</span></p>
-                  ) : null}
-                  {def.definition ? (
-                    <p className="text-sm text-muted-foreground mt-0.5">Definition: {def.definition}</p>
-                  ) : null}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm italic mb-1">"{def.sentence}"</p>
+                      {def.translation ? (
+                        <p className="text-sm font-medium">Translation: <span className="font-normal">{def.translation}</span></p>
+                      ) : null}
+                      {def.definition ? (
+                        <p className="text-sm text-muted-foreground mt-0.5">Definition: {def.definition}</p>
+                      ) : null}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/definitions", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ word, sentence: def.sentence, translation: def.translation, definition: def.definition }),
+                          })
+                          if (res.ok) {
+                            const saved: WordDoc = await res.json()
+                            onWordDocUpdate(saved)
+                          }
+                        } catch (e) {
+                          console.error(e)
+                        }
+                      }}
+                      className="-mr-2 -mt-2"
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -176,13 +202,13 @@ function StoryView() {
       case 0:
         return "bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer"
       case 1:
-        return "bg-pink-100 text-pink-800 hover:bg-pink-200 cursor-pointer"
+        return "bg-pink-400 text-pink-900 hover:bg-pink-500 cursor-pointer" // Barely know => darker
       case 2:
-        return "bg-pink-200 text-pink-900 hover:bg-pink-300 cursor-pointer"
-      case 3:
         return "bg-pink-300 text-pink-900 hover:bg-pink-400 cursor-pointer"
+      case 3:
+        return "bg-pink-200 text-pink-900 hover:bg-pink-300 cursor-pointer"
       case 4:
-        return "bg-pink-400 text-pink-900 hover:bg-pink-500 cursor-pointer"
+        return "bg-pink-100 text-pink-800 hover:bg-pink-200 cursor-pointer" // Confident => lighter
       case 5:
         return "text-foreground hover:bg-muted cursor-pointer"
       default:
@@ -212,8 +238,41 @@ function StoryView() {
     })
   }
 
-  const nextParagraph = () => {
-    if (!story) return
+  const nextParagraph = async () => {
+    if (!story || !current) return
+
+    // Auto-master blue (level 0) words from current paragraph before moving on
+    const tokens = current.text.split(/(\s+|[.,!?;:])/)
+    const uniqueWords = new Set<string>()
+    for (const part of tokens) {
+      const cleanWord = part.replace(/[.,!?;:]/g, "").toLowerCase()
+      if (cleanWord && /^[\p{L}\p{M}]+$/u.test(cleanWord)) uniqueWords.add(cleanWord)
+    }
+    const toMaster = Array.from(uniqueWords).filter((w) => (wordLevels[w]?.level ?? 0) === 0)
+
+    if (toMaster.length) {
+      try {
+        await Promise.all(
+          toMaster.map(async (w) => {
+            const res = await fetch("/api/words", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ word: w, level: 5 }),
+            })
+            if (res.ok) {
+              const saved: WordDoc = await res.json()
+              setWordLevels((prev) => ({ ...prev, [saved.word.toLowerCase()]: { level: saved.level, definitions: saved.definitions || [] } }))
+            } else {
+              // update state optimistically even if request fails
+              setWordLevels((prev) => ({ ...prev, [w]: { level: 5, definitions: prev[w]?.definitions || [] } }))
+            }
+          }),
+        )
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
     if (currentParagraph < story.paragraphs.length - 1) setCurrentParagraph((p) => p + 1)
   }
   const prevParagraph = () => {

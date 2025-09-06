@@ -25,3 +25,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500 })
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    if (!process.env.MONGODB_URI) {
+      return new Response(JSON.stringify({ error: "MONGODB_URI not configured" }), { status: 500 })
+    }
+    const id = params.id
+    const col = await storiesCollection()
+    const res = await col.deleteOne({ _id: new ObjectId(id) })
+    if (res.deletedCount === 0) return new Response(JSON.stringify({ error: "Not found" }), { status: 404 })
+    return new Response(null, { status: 204 })
+  } catch (err: any) {
+    console.error("/api/stories/[id] DELETE error", err)
+    return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500 })
+  }
+}
