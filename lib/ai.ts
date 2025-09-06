@@ -43,7 +43,7 @@ Sors UNIQUEMENT du JSON compact au format: { "title": string, "paragraphs": stri
   // Fallback: split by double newlines
   const parts = text
     .split(/\n\n+/)
-    .map((s: string) => s.replace(/^\s*\d+\.?\s*/g, "").trim())
+    .map((s: string) => s.replace(/^\s*\d+\.?|\s*$/g, "").trim())
     .filter(Boolean)
   return { title: "Sans titre", paragraphs: parts.slice(0, 6) }
 }
@@ -78,4 +78,34 @@ Paragraph (French text):\n${paragraph}\n\nStory context (for consistency only, a
   }
   // If no image returned, throw an error to let caller handle
   throw new Error("No image data returned from model")
+}
+
+export async function generateContextualDefinition(
+  word: string,
+  sentence: string,
+): Promise<{ translation: string; definition: string }> {
+  const prompt = `For the target word used in this specific French sentence, return a very brief English translation of the word in context and a concise English definition (10–25 words). Output ONLY compact JSON: { "translation": string, "definition": string }.
+
+Target word: ${word}
+French sentence: ${sentence}`
+
+  const resp = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt })
+  const text = (resp as any).text?.trim() || ""
+  // Try JSON parse
+  try {
+    const first = text.indexOf("{")
+    const last = text.lastIndexOf("}")
+    const jsonStr = first >= 0 && last >= 0 ? text.slice(first, last + 1) : text
+    const parsed = JSON.parse(jsonStr)
+    const translation = String(parsed.translation || "").trim()
+    const definition = String(parsed.definition || "").trim()
+    if (translation || definition) return { translation, definition }
+  } catch (_) {
+    // fallback below
+  }
+  // Fallback: attempt to split lines like "translation - definition" or first line/second line
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean)
+  if (lines.length >= 2) return { translation: lines[0], definition: lines.slice(1).join(" ") }
+  if (lines.length === 1) return { translation: lines[0], definition: "" }
+  return { translation: "", definition: "" }
 }

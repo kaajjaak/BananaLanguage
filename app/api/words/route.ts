@@ -8,7 +8,18 @@ export async function GET() {
     }
     const col = await wordsCollection()
     const items = await col.find({}, { projection: { word: 1, level: 1, definitions: 1 } }).toArray()
-    return new Response(JSON.stringify(items), { status: 200 })
+    const normalized = items.map((w: any) => ({
+      word: w.word,
+      level: w.level,
+      definitions: Array.isArray(w.definitions)
+        ? w.definitions.map((d: any) =>
+            typeof d === "string"
+              ? { sentence: "", translation: "", definition: d }
+              : { sentence: d.sentence || "", translation: d.translation || "", definition: d.definition || "" },
+          )
+        : [],
+    }))
+    return new Response(JSON.stringify(normalized), { status: 200 })
   } catch (err: any) {
     console.error("/api/words GET error", err)
     return new Response(JSON.stringify({ error: err?.message || "Internal error" }), { status: 500 })
@@ -23,7 +34,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const wordRaw: string | undefined = body.word
     const level: number | undefined = body.level
-    const definition: string | undefined = body.definition
 
     if (!wordRaw) return new Response(JSON.stringify({ error: "Missing word" }), { status: 400 })
     if (typeof level !== "number" || level < 0 || level > 5)
@@ -35,9 +45,6 @@ export async function POST(req: NextRequest) {
     const update: any = {
       $set: { level, updatedAt: new Date(), word },
       $setOnInsert: { createdAt: new Date(), definitions: [] },
-    }
-    if (definition && definition.trim()) {
-      update.$push = { definitions: definition.trim() }
     }
 
     await col.updateOne({ word }, update, { upsert: true })

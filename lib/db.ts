@@ -20,11 +20,17 @@ export async function getDb(): Promise<Db> {
 }
 
 // --- Collections & Schemas ---
+export type WordDefinition = {
+  sentence: string
+  translation: string // brief translation of the target word in sentence context
+  definition: string // brief English definition in context
+}
+
 export type WordDoc = {
   _id?: any
   word: string // lowercased
   level: number // 0..5
-  definitions?: string[]
+  definitions?: WordDefinition[]
   createdAt: Date
   updatedAt: Date
 }
