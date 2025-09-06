@@ -31,10 +31,10 @@ services:
       - HOST=0.0.0.0
       - PORT=3000
       - MONGODB_URI=mongodb://root:example@mongo:27017/banana?authSource=admin
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
       - "3300:3000"
     restart: unless-stopped
 
 volumes:
   mongo_data:
-
