@@ -7,7 +7,6 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
-import { Input } from "@/components/ui/input"
 
 type StoryApi = {
   id: string
@@ -18,25 +17,28 @@ type StoryApi = {
   paragraphs: { index: number; text: string; image?: { mimeType: string; dataBase64: string } }[]
 }
 
-type WordDoc = { word: string; level: number; definitions?: string[] }
+type WordDefinition = { sentence: string; translation: string; definition: string }
+type WordDoc = { word: string; level: number; definitions?: WordDefinition[] }
 
 function KnowledgeLevelModal({
   word,
   currentLevel,
   definitions,
+  paragraphText,
   onClose,
   onLevelChange,
-  onAddDefinition,
+  onWordDocUpdate,
 }: {
   word: string
   currentLevel: number
-  definitions: string[]
+  definitions: WordDefinition[]
+  paragraphText: string
   onClose: () => void
   onLevelChange: (level: number) => void
-  onAddDefinition: (def: string) => void
+  onWordDocUpdate: (doc: WordDoc) => void
 }) {
   const [selectedLevel, setSelectedLevel] = useState(currentLevel)
-  const [newDef, setNewDef] = useState("")
+  const [isAddingDef, setIsAddingDef] = useState(false)
 
   useEffect(() => setSelectedLevel(currentLevel), [currentLevel])
 
@@ -54,11 +56,24 @@ function KnowledgeLevelModal({
     onLevelChange(level)
   }
 
-  const handleAddDef = async () => {
-    const def = newDef.trim()
-    if (!def) return
-    onAddDefinition(def)
-    setNewDef("")
+  const handleAddDefinition = async () => {
+    if (isAddingDef) return
+    setIsAddingDef(true)
+    try {
+      const res = await fetch("/api/definitions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word, paragraph: paragraphText }),
+      })
+      if (res.ok) {
+        const saved: WordDoc = await res.json()
+        onWordDocUpdate(saved)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsAddingDef(false)
+    }
   }
 
   return (
@@ -91,29 +106,34 @@ function KnowledgeLevelModal({
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="font-medium mb-3">Definitions</h4>
-            <div className="space-y-2 mb-3">
+            <h4 className="font-medium mb-3">Translations & Definitions</h4>
+            <div className="space-y-3">
               {definitions.length === 0 && (
-                <p className="text-sm text-muted-foreground">No definitions yet.</p>
+                <p className="text-sm text-muted-foreground">No entries yet.</p>
               )}
               {definitions.map((def, idx) => (
-                <div key={idx} className="bg-muted/50 p-3 rounded text-sm">
-                  {def}
+                <div key={idx} className="bg-muted/50 p-4 rounded">
+                  <p className="text-sm italic mb-1">"{def.sentence}"</p>
+                  {def.translation ? (
+                    <p className="text-sm font-medium">Translation: <span className="font-normal">{def.translation}</span></p>
+                  ) : null}
+                  {def.definition ? (
+                    <p className="text-sm text-muted-foreground mt-0.5">Definition: {def.definition}</p>
+                  ) : null}
                 </div>
               ))}
             </div>
-            <div className="flex gap-2">
-              <Input
-                value={newDef}
-                onChange={(e) => setNewDef(e.target.value)}
-                placeholder="Add a definition or note"
-              />
-              <Button variant="outline" onClick={handleAddDef}>
-                + Add Definition
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddDefinition}
+              className="mt-3 w-full bg-transparent"
+              disabled={isAddingDef}
+            >
+              {isAddingDef ? "Generating…" : "+ Add Translation & Definition (AI)"}
+            </Button>
             <p className="text-xs text-muted-foreground mt-2">
-              Adding a definition will store this word at the lowest level if it's not in your database yet.
+              Adds a brief English translation and a definition in the context of the sentence and saves this word at the lowest level.
             </p>
           </div>
         </CardContent>
@@ -128,7 +148,7 @@ function StoryView() {
   const [story, setStory] = useState<StoryApi | null>(null)
   const [currentParagraph, setCurrentParagraph] = useState(0)
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
-  const [wordLevels, setWordLevels] = useState<Record<string, { level: number; definitions: string[] }>>({})
+  const [wordLevels, setWordLevels] = useState<Record<string, { level: number; definitions: WordDefinition[] }>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -140,7 +160,7 @@ function StoryView() {
         if (sRes.ok) setStory(await sRes.json())
         if (wRes.ok) {
           const words: WordDoc[] = await wRes.json()
-          const map: Record<string, { level: number; definitions: string[] }> = {}
+          const map: Record<string, { level: number; definitions: WordDefinition[] }> = {}
           for (const w of words) map[w.word.toLowerCase()] = { level: w.level, definitions: w.definitions || [] }
           setWordLevels(map)
         }
@@ -220,24 +240,9 @@ function StoryView() {
     }
   }
 
-  const handleAddDefinition = async (word: string, def: string) => {
-    const w = word.toLowerCase()
-    try {
-      const res = await fetch("/api/words", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: w, level: 0, definition: def }),
-      })
-      if (res.ok) {
-        const saved: WordDoc = await res.json()
-        setWordLevels((prev) => ({
-          ...prev,
-          [w]: { level: saved.level, definitions: saved.definitions || [] },
-        }))
-      }
-    } catch (e) {
-      console.error(e)
-    }
+  const handleWordDocUpdate = (doc: WordDoc) => {
+    const w = doc.word.toLowerCase()
+    setWordLevels((prev) => ({ ...prev, [w]: { level: doc.level, definitions: doc.definitions || [] } }))
   }
 
   if (!story || !current) {
@@ -247,10 +252,6 @@ function StoryView() {
       </div>
     )
   }
-
-  const selWord = selectedWord?.toLowerCase()
-  const selLevel = selWord ? wordLevels[selWord]?.level ?? 0 : 0
-  const selDefs = selWord ? wordLevels[selWord]?.definitions ?? [] : []
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -309,14 +310,15 @@ function StoryView() {
         </div>
       </div>
 
-      {selectedWord && (
+      {selectedWord && story && (
         <KnowledgeLevelModal
           word={selectedWord}
-          currentLevel={selLevel}
-          definitions={selDefs}
+          currentLevel={wordLevels[selectedWord.toLowerCase()]?.level ?? 0}
+          definitions={wordLevels[selectedWord.toLowerCase()]?.definitions || []}
+          paragraphText={story.paragraphs[currentParagraph].text}
           onClose={() => setSelectedWord(null)}
           onLevelChange={(lvl) => handleLevelChange(selectedWord, lvl)}
-          onAddDefinition={(def) => handleAddDefinition(selectedWord, def)}
+          onWordDocUpdate={handleWordDocUpdate}
         />
       )}
     </div>
