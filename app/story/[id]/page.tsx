@@ -6,9 +6,9 @@ import { useEffect, useMemo, useState, Suspense } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, X, Volume2 } from "lucide-react"
 import { WarningDisplay } from "@/components/ui/error-display"
-import { AudioPlayer, WordMenu } from "@/components/audio-player"
+import { AudioPlayer } from "@/components/audio-player"
 
 type StoryApi = {
   id: string
@@ -49,6 +49,8 @@ function KnowledgeLevelModal({
 }) {
   const [selectedLevel, setSelectedLevel] = useState(currentLevel)
   const [isAddingDef, setIsAddingDef] = useState(false)
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false)
+  const [audioData, setAudioData] = useState<{ mimeType: string; dataBase64: string } | null>(null)
 
   useEffect(() => setSelectedLevel(currentLevel), [currentLevel])
 
@@ -64,6 +66,52 @@ function KnowledgeLevelModal({
   const handleLevelSelect = async (level: number) => {
     setSelectedLevel(level)
     onLevelChange(level)
+  }
+
+  const playWordAudio = async () => {
+    if (audioData) {
+      // Play cached audio
+      const audio = new Audio(`data:${audioData.mimeType};base64,${audioData.dataBase64}`)
+      audio.play()
+      return
+    }
+
+    setIsLoadingAudio(true)
+    try {
+      // First try to get cached audio
+      const cacheResponse = await fetch(`/api/word-audio?word=${encodeURIComponent(word)}`)
+      
+      let audio
+      if (cacheResponse.ok) {
+        const cacheData = await cacheResponse.json()
+        audio = cacheData.audio
+      } else {
+        // Generate new audio
+        const generateResponse = await fetch('/api/word-audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ word })
+        })
+        
+        if (!generateResponse.ok) {
+          throw new Error('Failed to generate word audio')
+        }
+        
+        const generateData = await generateResponse.json()
+        audio = generateData.audio
+      }
+
+      setAudioData(audio)
+      
+      // Play the audio
+      const audioElement = new Audio(`data:${audio.mimeType};base64,${audio.dataBase64}`)
+      audioElement.play()
+      
+    } catch (error) {
+      console.error('Failed to play word audio:', error)
+    } finally {
+      setIsLoadingAudio(false)
+    }
   }
 
   const handleAddDefinition = async () => {
@@ -91,7 +139,22 @@ function KnowledgeLevelModal({
       <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
         <CardContent className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-semibold">"{word}"</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl font-semibold">"{word}"</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={playWordAudio}
+                disabled={isLoadingAudio}
+                className="flex items-center gap-2"
+              >
+                {isLoadingAudio ? (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
+                ) : (
+                  <Volume2 className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -242,14 +305,13 @@ function StoryView() {
       if (isWord) {
         const level = wordLevels[cleanWord]?.level ?? 0 // unknown words default to 0 = blue
         return (
-          <WordMenu key={index} word={cleanWord}>
-            <span
-              className={`px-1 py-0.5 rounded transition-colors ${getWordColorClass(level)}`}
-              onClick={() => setSelectedWord(part.replace(/[.,!?;:]/g, ""))}
-            >
-              {part}
-            </span>
-          </WordMenu>
+          <span
+            key={index}
+            className={`px-1 py-0.5 rounded transition-colors ${getWordColorClass(level)}`}
+            onClick={() => setSelectedWord(part.replace(/[.,!?;:]/g, ""))}
+          >
+            {part}
+          </span>
         )
       }
       return <span key={index}>{part}</span>
