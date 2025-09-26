@@ -127,3 +127,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom checkbox styling for better visibility */
+[data-slot="checkbox"][data-state="checked"] {
+  background-color: oklch(0.8 0.12 75) !important; /* Golden yellow */
+  border-color: oklch(0.8 0.12 75) !important;
+  color: oklch(0.15 0.02 250) !important; /* Dark text */
+}
+
+.dark [data-slot="checkbox"][data-state="checked"] {
+  background-color: oklch(0.8 0.12 75) !important; /* Golden yellow */
+  border-color: oklch(0.8 0.12 75) !important;
+  color: oklch(0.15 0.02 250) !important; /* Dark text */
+}

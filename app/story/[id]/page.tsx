@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { WarningDisplay } from "@/components/ui/error-display"
-import { AudioPlayer, WordAudioButton } from "@/components/audio-player"
+import { AudioPlayer, WordMenu } from "@/components/audio-player"
 
 type StoryApi = {
   id: string
@@ -242,15 +242,14 @@ function StoryView() {
       if (isWord) {
         const level = wordLevels[cleanWord]?.level ?? 0 // unknown words default to 0 = blue
         return (
-          <span key={index} className="inline-flex items-center">
+          <WordMenu key={index} word={cleanWord}>
             <span
               className={`px-1 py-0.5 rounded transition-colors ${getWordColorClass(level)}`}
               onClick={() => setSelectedWord(part.replace(/[.,!?;:]/g, ""))}
             >
               {part}
             </span>
-            <WordAudioButton word={cleanWord} />
-          </span>
+          </WordMenu>
         )
       }
       return <span key={index}>{part}</span>
