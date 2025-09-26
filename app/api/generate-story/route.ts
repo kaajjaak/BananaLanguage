@@ -2,12 +2,64 @@ import { NextRequest } from "next/server"
 import { generateStoryText, generateImageForParagraph } from "@/lib/ai"
 import { storiesCollection, StoryDoc } from "@/lib/db"
 import { GenerationError, ErrorType, classifyError } from "@/lib/errors"
+import { TextToSpeechClient } from "@google-cloud/text-to-speech"
 
 export const maxDuration = 300
 
+// Initialize the TTS client
+let ttsClient: TextToSpeechClient | null = null
+
+function getTTSClient() {
+  if (!ttsClient) {
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_API_KEY not configured")
+    }
+    
+    ttsClient = new TextToSpeechClient({
+      apiKey: process.env.GOOGLE_API_KEY,
+    })
+  }
+  return ttsClient
+}
+
+async function generateTTSForText(text: string): Promise<{ mimeType: string; dataBase64: string } | null> {
+  try {
+    const client = getTTSClient()
+    
+    const request = {
+      input: { text },
+      voice: {
+        languageCode: 'fr-FR',
+        name: 'fr-FR-Neural2-A',
+        ssmlGender: 'FEMALE' as const,
+      },
+      audioConfig: {
+        audioEncoding: 'MP3' as const,
+        speakingRate: 1.0,
+        pitch: 0,
+        volumeGainDb: 0,
+      },
+    }
+
+    const [response] = await client.synthesizeSpeech(request)
+    
+    if (!response.audioContent) {
+      throw new Error("No audio content received from TTS service")
+    }
+
+    return {
+      mimeType: 'audio/mpeg',
+      dataBase64: Buffer.from(response.audioContent).toString('base64')
+    }
+  } catch (error) {
+    console.warn("TTS generation failed:", error)
+    return null
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, level, imageStyle } = await req.json()
+    const { prompt, level, imageStyle, generateTTS } = await req.json()
     if (!prompt || !level) {
       return new Response(JSON.stringify({ 
         error: "Missing prompt or level",
@@ -47,20 +99,41 @@ export async function POST(req: NextRequest) {
     const fullText = story.paragraphs.join("\n\n")
     const paragraphsWithImages: StoryDoc["paragraphs"] = []
     const imageErrors: string[] = []
+    const audioErrors: string[] = []
 
     for (let i = 0; i < story.paragraphs.length; i++) {
       const p = story.paragraphs[i]
+      let img = undefined
+      let audio = undefined
+      
+      // Generate image
       try {
-        const img = await generateImageForParagraph({ paragraph: p, fullStory: fullText, imageStyle })
-        paragraphsWithImages.push({ index: i, text: p, image: img })
+        img = await generateImageForParagraph({ paragraph: p, fullStory: fullText, imageStyle })
       } catch (err) {
         const imgError = err instanceof GenerationError ? err : classifyError(err)
         console.warn(`Image generation failed for paragraph ${i}:`, imgError)
         imageErrors.push(`Paragraph ${i + 1}: ${imgError.message}`)
-        
-        // If image fails, still store text paragraph
-        paragraphsWithImages.push({ index: i, text: p })
       }
+      
+      // Generate TTS if requested
+      if (generateTTS) {
+        try {
+          audio = await generateTTSForText(p)
+          if (!audio) {
+            audioErrors.push(`Paragraph ${i + 1}: TTS generation failed`)
+          }
+        } catch (err) {
+          console.warn(`TTS generation failed for paragraph ${i}:`, err)
+          audioErrors.push(`Paragraph ${i + 1}: ${err instanceof Error ? err.message : 'TTS generation failed'}`)
+        }
+      }
+      
+      paragraphsWithImages.push({ 
+        index: i, 
+        text: p, 
+        image: img,
+        audio: audio
+      })
     }
 
     const doc: StoryDoc = {
@@ -71,6 +144,8 @@ export async function POST(req: NextRequest) {
       fullText,
       paragraphs: paragraphsWithImages,
       imageErrors: imageErrors.length > 0 ? imageErrors : undefined,
+      audioErrors: audioErrors.length > 0 ? audioErrors : undefined,
+      hasTTS: generateTTS,
       createdAt: new Date(),
     }
 
@@ -79,9 +154,18 @@ export async function POST(req: NextRequest) {
       const res = await col.insertOne(doc as any)
 
       const response: any = { id: String(res.insertedId) }
-      if (imageErrors.length > 0) {
-        response.imageErrors = imageErrors
-        response.warning = `Story created successfully, but ${imageErrors.length} image(s) failed to generate`
+      const totalErrors = imageErrors.length + audioErrors.length
+      if (totalErrors > 0) {
+        const warnings = []
+        if (imageErrors.length > 0) {
+          response.imageErrors = imageErrors
+          warnings.push(`${imageErrors.length} image(s) failed to generate`)
+        }
+        if (audioErrors.length > 0) {
+          response.audioErrors = audioErrors
+          warnings.push(`${audioErrors.length} audio clip(s) failed to generate`)
+        }
+        response.warning = `Story created successfully, but ${warnings.join(' and ')}`
       }
 
       return new Response(JSON.stringify(response), { status: 201 })

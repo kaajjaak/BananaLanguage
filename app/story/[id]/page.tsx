@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { WarningDisplay } from "@/components/ui/error-display"
+import { AudioPlayer, WordAudioButton } from "@/components/audio-player"
 
 type StoryApi = {
   id: string
@@ -15,8 +16,15 @@ type StoryApi = {
   prompt: string
   level: string
   imageStyle?: string
-  paragraphs: { index: number; text: string; image?: { mimeType: string; dataBase64: string } }[]
+  paragraphs: { 
+    index: number; 
+    text: string; 
+    image?: { mimeType: string; dataBase64: string }
+    audio?: { mimeType: string; dataBase64: string }
+  }[]
   imageErrors?: string[]
+  audioErrors?: string[]
+  hasTTS?: boolean
 }
 
 type WordDefinition = { sentence: string; translation: string; definition: string }
@@ -234,12 +242,14 @@ function StoryView() {
       if (isWord) {
         const level = wordLevels[cleanWord]?.level ?? 0 // unknown words default to 0 = blue
         return (
-          <span
-            key={index}
-            className={`px-1 py-0.5 rounded transition-colors ${getWordColorClass(level)}`}
-            onClick={() => setSelectedWord(part.replace(/[.,!?;:]/g, ""))}
-          >
-            {part}
+          <span key={index} className="inline-flex items-center">
+            <span
+              className={`px-1 py-0.5 rounded transition-colors ${getWordColorClass(level)}`}
+              onClick={() => setSelectedWord(part.replace(/[.,!?;:]/g, ""))}
+            >
+              {part}
+            </span>
+            <WordAudioButton word={cleanWord} />
           </span>
         )
       }
@@ -354,18 +364,33 @@ function StoryView() {
                 )}
               </div>
               <div>
+                {/* Audio Player for Paragraph */}
+                {current.audio && (
+                  <div className="mb-4">
+                    <AudioPlayer audioData={current.audio} />
+                  </div>
+                )}
                 <p className="text-lg leading-relaxed">{renderTextWithHighlights(current.text)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Image Generation Warning */}
-        {story.imageErrors && story.imageErrors.length > 0 && showImageWarning && (
+        {/* Generation Warnings */}
+        {((story.imageErrors && story.imageErrors.length > 0) || (story.audioErrors && story.audioErrors.length > 0)) && showImageWarning && (
           <div className="mb-6">
             <WarningDisplay
-              message={`Some images failed to generate (${story.imageErrors.length} error${story.imageErrors.length > 1 ? 's' : ''})`}
-              details={story.imageErrors}
+              message={(() => {
+                const warnings = []
+                if (story.imageErrors && story.imageErrors.length > 0) {
+                  warnings.push(`${story.imageErrors.length} image(s) failed to generate`)
+                }
+                if (story.audioErrors && story.audioErrors.length > 0) {
+                  warnings.push(`${story.audioErrors.length} audio clip(s) failed to generate`)
+                }
+                return `Some content failed to generate: ${warnings.join(' and ')}`
+              })()}
+              details={[...(story.imageErrors || []), ...(story.audioErrors || [])]}
               onDismiss={() => setShowImageWarning(false)}
             />
           </div>
