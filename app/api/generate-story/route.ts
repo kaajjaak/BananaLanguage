@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server"
 import { generateStoryText, generateImageForParagraph } from "@/lib/ai"
-import { storiesCollection, StoryDoc } from "@/lib/db"
+import { storiesCollection, StoryDoc, paragraphAudioCollection, ParagraphAudioDoc } from "@/lib/db"
 import { GenerationError, ErrorType, classifyError } from "@/lib/errors"
 import { TextToSpeechClient } from "@google-cloud/text-to-speech"
+import { createHash } from "crypto"
 
 export const maxDuration = 300
 
@@ -24,6 +25,19 @@ function getTTSClient() {
 
 async function generateTTSForText(text: string): Promise<{ mimeType: string; dataBase64: string } | null> {
   try {
+    // Create hash of the text for caching
+    const textHash = createHash('sha256').update(text.trim()).digest('hex')
+    
+    // Check if we already have cached audio for this text
+    const audioCol = await paragraphAudioCollection()
+    const cachedAudio = await audioCol.findOne({ textHash })
+    
+    if (cachedAudio) {
+      console.log("Using cached paragraph audio for hash:", textHash.substring(0, 8))
+      return cachedAudio.audio
+    }
+    
+    // Generate new audio
     const client = getTTSClient()
     
     const request = {
@@ -47,10 +61,28 @@ async function generateTTSForText(text: string): Promise<{ mimeType: string; dat
       throw new Error("No audio content received from TTS service")
     }
 
-    return {
+    const audioData = {
       mimeType: 'audio/mpeg',
       dataBase64: Buffer.from(response.audioContent).toString('base64')
     }
+    
+    // Cache the generated audio
+    try {
+      const audioDoc: ParagraphAudioDoc = {
+        textHash,
+        text: text.trim(),
+        audio: audioData,
+        createdAt: new Date()
+      }
+      
+      await audioCol.insertOne(audioDoc)
+      console.log("Cached new paragraph audio for hash:", textHash.substring(0, 8))
+    } catch (cacheError) {
+      // If caching fails, still return the audio (maybe duplicate key error)
+      console.warn("Failed to cache paragraph audio:", cacheError)
+    }
+
+    return audioData
   } catch (error) {
     console.warn("TTS generation failed:", error)
     return null

@@ -15,7 +15,7 @@ export async function getDb(): Promise<Db> {
     _client = new MongoClient(uri)
     await _client.connect()
   }
-  _db = _client.db()
+  _db = _client.db("banana")
   return _db
 }
 
@@ -73,5 +73,23 @@ export async function storiesCollection(): Promise<Collection<StoryDoc>> {
   const db = await getDb()
   const col = db.collection<StoryDoc>("stories")
   await col.createIndex({ createdAt: -1 })
+  return col
+}
+
+export type ParagraphAudioDoc = {
+  _id?: any
+  textHash: string // SHA-256 hash of the paragraph text
+  text: string // Original paragraph text for reference
+  audio: {
+    mimeType: string
+    dataBase64: string // base64 without data: prefix
+  }
+  createdAt: Date
+}
+
+export async function paragraphAudioCollection(): Promise<Collection<ParagraphAudioDoc>> {
+  const db = await getDb()
+  const col = db.collection<ParagraphAudioDoc>("paragraph_audio")
+  await col.createIndex({ textHash: 1 }, { unique: true })
   return col
 }
