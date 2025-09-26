@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { Clock, BookOpen, Trash2 } from "lucide-react"
 import {
   AlertDialog,
@@ -25,6 +27,7 @@ export default function HomePage() {
   const [prompt, setPrompt] = useState("")
   const [level, setLevel] = useState("")
   const [imageStyle, setImageStyle] = useState("")
+  const [generateTTS, setGenerateTTS] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [stories, setStories] = useState<Array<{ id: string; title: string; level: string; createdAt: string }>>([])
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -70,7 +73,7 @@ export default function HomePage() {
       const res = await fetch("/api/generate-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, level, imageStyle: imageStyle.trim() || undefined }),
+        body: JSON.stringify({ prompt, level, imageStyle: imageStyle.trim() || undefined, generateTTS }),
       })
       
       const data = await res.json()
@@ -196,6 +199,23 @@ export default function HomePage() {
               onChange={(e) => setImageStyle(e.target.value)}
               className="border-2 border-border bg-card"
             />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="generateTTS"
+                checked={generateTTS}
+                onCheckedChange={(checked) => setGenerateTTS(checked as boolean)}
+              />
+              <Label htmlFor="generateTTS" className="text-sm font-medium text-foreground">
+                🔊 Generate French audio for each paragraph
+              </Label>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              When enabled, each paragraph will have a play button to hear the French pronunciation. 
+              You can also click on individual words to hear their pronunciation.
+            </p>
           </div>
 
           <Button

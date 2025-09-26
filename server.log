@@ -1,0 +1,13 @@
+
+> banana-langauge@0.0.1 dev
+> next dev
+
+  ▲ Next.js 14.2.32
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 3.8s
+ ○ Compiling / ...
+ ✓ Compiled / in 5.9s (726 modules)
+ GET / 200 in 6304ms
+ GET / 200 in 143ms
