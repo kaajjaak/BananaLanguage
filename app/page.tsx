@@ -19,6 +19,7 @@ import {
   AlertDialogDescription,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { ErrorDisplay, WarningDisplay, ErrorInfo } from "@/components/ui/error-display"
 
 export default function HomePage() {
   const [prompt, setPrompt] = useState("")
@@ -27,6 +28,9 @@ export default function HomePage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [stories, setStories] = useState<Array<{ id: string; title: string; level: string; createdAt: string }>>([])
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [error, setError] = useState<ErrorInfo | null>(null)
+  const [warning, setWarning] = useState<{ message: string; details?: string[] } | null>(null)
+  const [isRetrying, setIsRetrying] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -51,23 +55,73 @@ export default function HomePage() {
     loadStories()
   }, [])
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (isRetry: boolean = false) => {
     if (!prompt.trim() || !level) return
 
-    setIsGenerating(true)
+    if (isRetry) {
+      setIsRetrying(true)
+    } else {
+      setIsGenerating(true)
+      setError(null)
+      setWarning(null)
+    }
+
     try {
       const res = await fetch("/api/generate-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, level, imageStyle: imageStyle.trim() || undefined }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      
       const data = await res.json()
+      
+      if (!res.ok) {
+        // Handle different error types based on the response
+        const errorInfo: ErrorInfo = {
+          message: data.error || "Failed to generate story",
+          type: data.type || "UNKNOWN_ERROR",
+          retryable: data.retryable !== false
+        }
+        
+        // For text generation failures, don't navigate to story page
+        if (data.type === 'API_KEY_MISSING' || data.type === 'BILLING_ISSUE' || 
+            data.type === 'GENERATION_FAILED' || data.type === 'PARSING_ERROR') {
+          setError(errorInfo)
+          return
+        }
+        
+        // For other retryable errors, show error but allow retry
+        setError(errorInfo)
+        return
+      }
+      
+      // Success case - check for warnings about image generation
+      if (data.warning && data.imageErrors) {
+        setWarning({
+          message: data.warning,
+          details: data.imageErrors
+        })
+      }
+      
+      // Navigate to story page (even if some images failed)
       router.push(`/story/${data.id}`)
+      
     } catch (e) {
       console.error("Failed to generate story", e)
+      const errorInfo: ErrorInfo = {
+        message: e instanceof Error ? e.message : "Network error occurred",
+        type: "NETWORK_ERROR",
+        retryable: true
+      }
+      setError(errorInfo)
+    } finally {
       setIsGenerating(false)
+      setIsRetrying(false)
     }
+  }
+
+  const handleRetry = () => {
+    handleGenerate(true)
   }
 
   const handleReopenStory = (id: string) => {
@@ -145,12 +199,33 @@ export default function HomePage() {
           </div>
 
           <Button
-            onClick={handleGenerate}
-            disabled={!prompt.trim() || !level || isGenerating}
+            onClick={() => handleGenerate()}
+            disabled={!prompt.trim() || !level || isGenerating || isRetrying}
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-6 text-lg"
           >
             {isGenerating ? "Generating your story..." : "Generate Story 🍌"}
           </Button>
+
+          {/* Error Display */}
+          {error && (
+            <ErrorDisplay
+              error={error}
+              onRetry={error.retryable ? handleRetry : undefined}
+              onDismiss={() => setError(null)}
+              isRetrying={isRetrying}
+              className="mt-4"
+            />
+          )}
+
+          {/* Warning Display */}
+          {warning && (
+            <WarningDisplay
+              message={warning.message}
+              details={warning.details}
+              onDismiss={() => setWarning(null)}
+              className="mt-4"
+            />
+          )}
         </div>
       </div>
 
