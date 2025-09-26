@@ -26,12 +26,27 @@ export function AudioPlayer({ audioData, className = "" }: AudioPlayerProps) {
     if (!audio) return
 
     const updateTime = () => {
-      setCurrentTime(audio.currentTime)
-      setProgress((audio.currentTime / audio.duration) * 100)
+      const current = audio.currentTime || 0
+      const dur = audio.duration
+      
+      setCurrentTime(current)
+      
+      // Only update progress if duration is valid
+      if (dur && isFinite(dur) && dur > 0) {
+        setProgress((current / dur) * 100)
+      } else {
+        setProgress(0)
+      }
     }
 
     const updateDuration = () => {
-      setDuration(audio.duration)
+      const dur = audio.duration
+      // Only set duration if it's a valid finite number
+      if (dur && isFinite(dur) && dur > 0) {
+        setDuration(dur)
+      } else {
+        setDuration(0)
+      }
     }
 
     const handleEnded = () => {
@@ -42,11 +57,15 @@ export function AudioPlayer({ audioData, className = "" }: AudioPlayerProps) {
 
     audio.addEventListener('timeupdate', updateTime)
     audio.addEventListener('loadedmetadata', updateDuration)
+    audio.addEventListener('loadeddata', updateDuration)
+    audio.addEventListener('canplay', updateDuration)
     audio.addEventListener('ended', handleEnded)
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime)
       audio.removeEventListener('loadedmetadata', updateDuration)
+      audio.removeEventListener('loadeddata', updateDuration)
+      audio.removeEventListener('canplay', updateDuration)
       audio.removeEventListener('ended', handleEnded)
     }
   }, [])
@@ -65,7 +84,7 @@ export function AudioPlayer({ audioData, className = "" }: AudioPlayerProps) {
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !duration || !isFinite(duration) || duration <= 0) return
 
     const rect = e.currentTarget.getBoundingClientRect()
     const clickX = e.clientX - rect.left
@@ -79,6 +98,11 @@ export function AudioPlayer({ audioData, className = "" }: AudioPlayerProps) {
   }
 
   const formatTime = (time: number) => {
+    // Handle invalid time values
+    if (!isFinite(time) || time < 0) {
+      return "0:00"
+    }
+    
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
