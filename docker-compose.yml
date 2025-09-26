@@ -11,6 +11,7 @@ services:
       - mongo_data:/data/db
     ports:
       - "27017:27017"
+      - "27018:27017"
     healthcheck:
       test: ["CMD-SHELL", "mongosh --quiet -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' || exit 1"]
       interval: 10s

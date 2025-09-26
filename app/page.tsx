@@ -209,13 +209,9 @@ export default function HomePage() {
                 onCheckedChange={(checked) => setGenerateTTS(checked as boolean)}
               />
               <Label htmlFor="generateTTS" className="text-sm font-medium text-foreground">
-                🔊 Generate French audio for each paragraph
+                🔊 Generate TTS audio for story
               </Label>
             </div>
-            <p className="text-sm text-muted-foreground">
-              When enabled, each paragraph will have a play button to hear the French pronunciation. 
-              You can also click on individual words to hear their pronunciation.
-            </p>
           </div>
 
           <Button
