@@ -1,17 +1,13 @@
 import { NextRequest } from "next/server"
 import { TextToSpeechClient } from "@google-cloud/text-to-speech"
-import { MongoClient } from "mongodb"
+import { getDb } from "@/lib/db"
 
 export const maxDuration = 60
 
 // Word audio cache collection
 async function wordAudioCollection() {
-  if (!process.env.MONGODB_URI) {
-    throw new Error("MONGODB_URI not configured")
-  }
-  const client = new MongoClient(process.env.MONGODB_URI)
-  await client.connect()
-  return client.db("banana-language").collection("word-audio")
+  const db = await getDb()
+  return db.collection("word-audio")
 }
 
 // Initialize the TTS client
