@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Play, Pause, Volume2 } from "lucide-react"
 
 interface AudioPlayerProps {
@@ -120,12 +121,12 @@ export function AudioPlayer({ audioData, className = "" }: AudioPlayerProps) {
   )
 }
 
-interface WordAudioButtonProps {
+interface WordMenuProps {
   word: string
-  className?: string
+  children: React.ReactNode
 }
 
-export function WordAudioButton({ word, className = "" }: WordAudioButtonProps) {
+export function WordMenu({ word, children }: WordMenuProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [audioData, setAudioData] = useState<{ mimeType: string; dataBase64: string } | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -185,20 +186,32 @@ export function WordAudioButton({ word, className = "" }: WordAudioButtonProps) 
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={playWordAudio}
-        disabled={isLoading}
-        className={`h-6 w-6 p-0 ml-1 ${className}`}
-        title={`Hear pronunciation of "${word}"`}
-      >
-        {isLoading ? (
-          <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
-        ) : (
-          <Volume2 className="h-3 w-3" />
-        )}
-      </Button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <span className="cursor-pointer hover:bg-accent/20 rounded px-1 transition-colors">
+            {children}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2" side="top">
+          <div className="flex flex-col gap-2">
+            <div className="text-sm font-medium">{word}</div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={playWordAudio}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-current" />
+              ) : (
+                <Volume2 className="h-3 w-3" />
+              )}
+              Hear pronunciation
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
       
       {audioData && (
         <audio

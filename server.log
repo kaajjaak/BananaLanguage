@@ -6,8 +6,21 @@
   - Local:        http://localhost:3000
 
  ✓ Starting...
- ✓ Ready in 3.8s
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 2.4s
  ○ Compiling / ...
- ✓ Compiled / in 5.9s (726 modules)
- GET / 200 in 6304ms
- GET / 200 in 143ms
+ ✓ Compiled / in 6.5s (726 modules)
+ GET / 200 in 6913ms
+ GET / 200 in 44ms
+ GET / 200 in 53ms
+ ✓ Compiled /api/stories in 375ms (342 modules)
+ ✓ Compiled (344 modules)
+[db] MONGODB_URI is not set. API routes depending on DB will fail until configured.
+ GET /api/words 200 in 847ms
+ GET /api/words 200 in 861ms
+ GET /api/stories 200 in 802ms
+ GET /api/stories 200 in 800ms
