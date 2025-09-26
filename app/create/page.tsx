@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, BookOpen, Globe, Sparkles, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
+import { ErrorDisplay, WarningDisplay, ErrorInfo } from "@/components/ui/error-display"
 
 const CEFR_LEVELS = [
   { value: "A1", label: "A1 - Beginner", description: "Basic phrases and simple sentences" },
@@ -37,17 +39,93 @@ export default function CreateStoryPage() {
   const [cefrLevel, setCefrLevel] = useState("")
   const [language, setLanguage] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<ErrorInfo | null>(null)
+  const [warning, setWarning] = useState<{ message: string; details?: string[] } | null>(null)
+  const [isRetrying, setIsRetrying] = useState(false)
+  const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, isRetry: boolean = false) => {
     e.preventDefault()
     if (!prompt.trim() || !cefrLevel || !language) return
 
-    setIsGenerating(true)
-    // TODO: Implement story generation logic
-    setTimeout(() => {
+    // Note: Currently only French is supported, so we'll use French regardless of language selection
+    if (language !== "french") {
+      setError({
+        message: "Currently only French language is supported. Please select French to continue.",
+        type: "VALIDATION_ERROR",
+        retryable: false
+      })
+      return
+    }
+
+    if (isRetry) {
+      setIsRetrying(true)
+    } else {
+      setIsGenerating(true)
+      setError(null)
+      setWarning(null)
+    }
+
+    try {
+      const res = await fetch("/api/generate-story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt: prompt.trim(), 
+          level: cefrLevel,
+          imageStyle: undefined // No image style option in this form
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        // Handle different error types based on the response
+        const errorInfo: ErrorInfo = {
+          message: data.error || "Failed to generate story",
+          type: data.type || "UNKNOWN_ERROR",
+          retryable: data.retryable !== false
+        }
+        
+        // For text generation failures, don't navigate to story page
+        if (data.type === 'API_KEY_MISSING' || data.type === 'BILLING_ISSUE' || 
+            data.type === 'GENERATION_FAILED' || data.type === 'PARSING_ERROR') {
+          setError(errorInfo)
+          return
+        }
+        
+        // For other retryable errors, show error but allow retry
+        setError(errorInfo)
+        return
+      }
+      
+      // Success case - check for warnings about image generation
+      if (data.warning && data.imageErrors) {
+        setWarning({
+          message: data.warning,
+          details: data.imageErrors
+        })
+      }
+      
+      // Navigate to story page (even if some images failed)
+      router.push(`/story/${data.id}`)
+      
+    } catch (e) {
+      console.error("Failed to generate story", e)
+      const errorInfo: ErrorInfo = {
+        message: e instanceof Error ? e.message : "Network error occurred",
+        type: "NETWORK_ERROR",
+        retryable: true
+      }
+      setError(errorInfo)
+    } finally {
       setIsGenerating(false)
-      // Navigate to story display page
-    }, 3000)
+      setIsRetrying(false)
+    }
+  }
+
+  const handleRetry = (e: React.FormEvent) => {
+    handleSubmit(e, true)
   }
 
   const isFormValid = prompt.trim() && cefrLevel && language
@@ -175,7 +253,7 @@ export default function CreateStoryPage() {
             <Button
               type="submit"
               size="lg"
-              disabled={!isFormValid || isGenerating}
+              disabled={!isFormValid || isGenerating || isRetrying}
               className="text-lg px-8 py-6 bg-accent hover:bg-accent/90 text-accent-foreground min-w-48"
             >
               {isGenerating ? (
@@ -191,6 +269,27 @@ export default function CreateStoryPage() {
               )}
             </Button>
           </div>
+
+          {/* Error Display */}
+          {error && (
+            <ErrorDisplay
+              error={error}
+              onRetry={error.retryable ? handleRetry : undefined}
+              onDismiss={() => setError(null)}
+              isRetrying={isRetrying}
+              className="mt-6"
+            />
+          )}
+
+          {/* Warning Display */}
+          {warning && (
+            <WarningDisplay
+              message={warning.message}
+              details={warning.details}
+              onDismiss={() => setWarning(null)}
+              className="mt-6"
+            />
+          )}
         </form>
 
         {/* Example Prompts */}
