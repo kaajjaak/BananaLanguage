@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
       title: story.title,
       fullText,
       paragraphs: paragraphsWithImages,
+      imageErrors: imageErrors.length > 0 ? imageErrors : undefined,
       createdAt: new Date(),
     }
 

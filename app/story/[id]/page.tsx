@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { WarningDisplay } from "@/components/ui/error-display"
 
 type StoryApi = {
   id: string
@@ -15,6 +16,7 @@ type StoryApi = {
   level: string
   imageStyle?: string
   paragraphs: { index: number; text: string; image?: { mimeType: string; dataBase64: string } }[]
+  imageErrors?: string[]
 }
 
 type WordDefinition = { sentence: string; translation: string; definition: string }
@@ -175,6 +177,7 @@ function StoryView() {
   const [currentParagraph, setCurrentParagraph] = useState(0)
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
   const [wordLevels, setWordLevels] = useState<Record<string, { level: number; definitions: WordDefinition[] }>>({})
+  const [showImageWarning, setShowImageWarning] = useState(true)
 
   const notifyLevelsUpdated = () => {
     if (typeof window !== "undefined") {
@@ -356,6 +359,17 @@ function StoryView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Image Generation Warning */}
+        {story.imageErrors && story.imageErrors.length > 0 && showImageWarning && (
+          <div className="mb-6">
+            <WarningDisplay
+              message={`Some images failed to generate (${story.imageErrors.length} error${story.imageErrors.length > 1 ? 's' : ''})`}
+              details={story.imageErrors}
+              onDismiss={() => setShowImageWarning(false)}
+            />
+          </div>
+        )}
 
         <div className="flex justify-between items-center">
           <Button variant="outline" onClick={prevParagraph} disabled={currentParagraph === 0}>

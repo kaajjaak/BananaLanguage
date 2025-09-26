@@ -52,6 +52,7 @@ export type StoryDoc = {
   title?: string
   fullText: string
   paragraphs: StoryParagraph[]
+  imageErrors?: string[] // Store image generation error messages
   createdAt: Date
 }
 

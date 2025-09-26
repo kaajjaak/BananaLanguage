@@ -18,6 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       level: doc.level,
       imageStyle: doc.imageStyle,
       paragraphs: doc.paragraphs,
+      imageErrors: doc.imageErrors,
       createdAt: doc.createdAt,
     }), { status: 200 })
   } catch (err: any) {
