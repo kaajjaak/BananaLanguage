@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@google-cloud/text-to-speech": "^6.3.0",
     "@google/genai": "^1.17.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",

@@ -42,6 +42,10 @@ export type StoryParagraph = {
     mimeType: string
     dataBase64: string // base64 without data: prefix
   }
+  audio?: {
+    mimeType: string
+    dataBase64: string // base64 without data: prefix
+  }
 }
 
 export type StoryDoc = {
@@ -53,6 +57,8 @@ export type StoryDoc = {
   fullText: string
   paragraphs: StoryParagraph[]
   imageErrors?: string[] // Store image generation error messages
+  audioErrors?: string[] // Store audio generation error messages
+  hasTTS?: boolean // Whether TTS was requested for this story
   createdAt: Date
 }
 

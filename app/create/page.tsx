@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { ErrorDisplay, WarningDisplay, ErrorInfo } from "@/components/ui/error-display"
 
@@ -38,6 +39,7 @@ export default function CreateStoryPage() {
   const [prompt, setPrompt] = useState("")
   const [cefrLevel, setCefrLevel] = useState("")
   const [language, setLanguage] = useState("")
+  const [generateTTS, setGenerateTTS] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<ErrorInfo | null>(null)
   const [warning, setWarning] = useState<{ message: string; details?: string[] } | null>(null)
@@ -73,7 +75,8 @@ export default function CreateStoryPage() {
         body: JSON.stringify({ 
           prompt: prompt.trim(), 
           level: cefrLevel,
-          imageStyle: undefined // No image style option in this form
+          imageStyle: undefined, // No image style option in this form
+          generateTTS: generateTTS
         }),
       })
       
@@ -245,6 +248,34 @@ export default function CreateStoryPage() {
                   <span>{prompt.length}/500</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Text-to-Speech Option */}
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-serif">
+                🔊 Audio Features
+              </CardTitle>
+              <CardDescription>
+                Enhance your learning experience with French text-to-speech audio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="generateTTS" 
+                  checked={generateTTS}
+                  onCheckedChange={(checked) => setGenerateTTS(checked as boolean)}
+                />
+                <Label htmlFor="generateTTS" className="cursor-pointer">
+                  Generate French audio for each paragraph
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                When enabled, each paragraph will have a play button to hear the French pronunciation. 
+                You can also click on individual words to hear their pronunciation.
+              </p>
             </CardContent>
           </Card>
 
